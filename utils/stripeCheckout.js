@@ -1,0 +1,60 @@
+const stripe = require("../config/stripe");
+
+const ZERO_DECIMAL_CURRENCIES = new Set([
+  "BIF",
+  "CLP",
+  "DJF",
+  "GNF",
+  "JPY",
+  "KMF",
+  "KRW",
+  "MGA",
+  "PYG",
+  "RWF",
+  "UGX",
+  "VND",
+  "VUV",
+  "XAF",
+  "XOF",
+  "XPF",
+]);
+
+const toStripeUnitAmount = (amount, currency) => {
+  const normalizedCurrency = currency.toUpperCase();
+
+  if (ZERO_DECIMAL_CURRENCIES.has(normalizedCurrency)) {
+    return Math.round(amount);
+  }
+
+  return Math.round(amount * 100);
+};
+
+const createInvoiceCheckoutSession = async ({ invoice, userId, baseUrl }) => {
+  return stripe.checkout.sessions.create({
+    mode: "payment",
+    customer_email: invoice.clientEmail,
+    success_url: `${baseUrl}/payment-success?invoiceId=${invoice._id}`,
+    cancel_url: `${baseUrl}/payment-cancelled?invoiceId=${invoice._id}`,
+    metadata: {
+      invoiceId: invoice._id.toString(),
+      userId: userId.toString(),
+    },
+    line_items: [
+      {
+        price_data: {
+          currency: invoice.currency.toLowerCase(),
+          product_data: {
+            name: `Invoice for ${invoice.clientName}`,
+            description: invoice.description || `Invoice ${invoice._id}`,
+          },
+          unit_amount: toStripeUnitAmount(invoice.amount, invoice.currency),
+        },
+        quantity: 1,
+      },
+    ],
+  });
+};
+
+module.exports = {
+  createInvoiceCheckoutSession,
+};

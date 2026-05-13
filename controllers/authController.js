@@ -8,6 +8,25 @@ const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: "30d" });
 };
 
+const hashOtp = (otp) => {
+  return crypto.createHash("sha256").update(otp).digest("hex");
+};
+
+const generateResetOtp = () => {
+  return crypto.randomInt(100000, 1000000).toString();
+};
+
+const createTransporter = () => {
+  return nodemailer.createTransport({
+    host: process.env.EMAIL_HOST,
+    port: process.env.EMAIL_PORT,
+    auth: {
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASS,
+    },
+  });
+};
+
 exports.registerUser = async (req, res) => {
   const { name, email, password } = req.body;
   try {
@@ -45,78 +64,80 @@ exports.loginUser = async (req, res) => {
 
 exports.forgotPassword = async (req, res) => {
   try {
-    const user = await User.findOne({ email: req.body.email });
+    const { email } = req.body;
+    const user = await User.findOne({ email });
     if (!user) {
-      return res.status(404).json({ message: "User not found" });
+      return res.status(200).json({
+        message: "If that email exists, a reset OTP has been sent",
+      });
     }
 
-    // 1. Generate Reset Token
-    const resetToken = crypto.randomBytes(20).toString("hex");
-
-    // 2. Save Hashed Token to DB
-    user.resetPasswordToken = crypto
-      .createHash("sha256")
-      .update(resetToken)
-      .digest("hex");
-    user.resetPasswordExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
+    const resetOtp = generateResetOtp();
+    user.resetPasswordOtp = hashOtp(resetOtp);
+    user.resetPasswordOtpExpires = Date.now() + 10 * 60 * 1000;
     await user.save();
 
-    // 3. Configure Mailtrap Transporter
-    const transporter = nodemailer.createTransport({
-      host: process.env.EMAIL_HOST,
-      port: process.env.EMAIL_PORT,
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      },
-    });
-
-    // 4. Email Options
-    const resetUrl = `${req.protocol}://${req.get("host")}/api/auth/reset-password/${resetToken}`;
+    const transporter = createTransporter();
 
     const mailOptions = {
       from: '"My Express App" <noreply@myapp.com>',
       to: user.email,
-      subject: "Password Reset Request",
+      subject: "Your Password Reset OTP",
       html: `
-                <p>You requested a password reset.</p>
-                <p>Click this link to reset your password (valid for 10 minutes):</p>
-                <a href="${resetUrl}">${resetUrl}</a>
-            `,
+        <p>You requested a password reset.</p>
+        <p>Your OTP is:</p>
+        <h2>${resetOtp}</h2>
+        <p>This OTP is valid for 10 minutes.</p>
+      `,
     };
 
-    // 5. Send Email
     await transporter.sendMail(mailOptions);
 
-    res
-      .status(200)
-      .json({ message: "Reset link sent to your email (Mailtrap)" });
+    res.status(200).json({
+      message: "If that email exists, a reset OTP has been sent",
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
 
-// @desc    Reset password using token
-exports.resetPassword = async (req, res) => {
+exports.verifyResetOtp = async (req, res) => {
   try {
-    // Hash the token from the URL to compare it with the DB
-    const hashedToken = crypto
-      .createHash("sha256")
-      .update(req.params.token)
-      .digest("hex");
+    const { email, otp } = req.body;
 
     const user = await User.findOne({
-      resetPasswordToken: hashedToken,
-      resetPasswordExpires: { $gt: Date.now() }, // Must be in the future
+      email,
+      resetPasswordOtp: hashOtp(otp),
+      resetPasswordOtpExpires: { $gt: Date.now() },
     });
 
-    if (!user)
-      return res.status(400).json({ message: "Invalid or expired token" });
+    if (!user) {
+      return res.status(400).json({ message: "Invalid or expired OTP" });
+    }
 
-    // Set new password
-    user.password = req.body.password;
-    user.resetPasswordToken = undefined;
-    user.resetPasswordExpires = undefined;
+    res.status(200).json({ message: "OTP verified successfully" });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+exports.resetPassword = async (req, res) => {
+  try {
+    const { email, otp, password } = req.body;
+
+    const user = await User.findOne({
+      email,
+      resetPasswordOtp: hashOtp(otp),
+      resetPasswordOtpExpires: { $gt: Date.now() },
+    });
+
+    if (!user) {
+      return res.status(400).json({ message: "Invalid or expired OTP" });
+    }
+
+    user.password = password;
+    user.resetPasswordOtp = undefined;
+    user.resetPasswordOtpExpires = undefined;
 
     await user.save();
     res.status(200).json({ message: "Password updated successfully" });
