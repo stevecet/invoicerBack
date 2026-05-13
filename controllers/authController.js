@@ -27,8 +27,13 @@ const createTransporter = () => {
   });
 };
 
+const normalizeEmail = (email = "") => {
+  return email.trim().toLowerCase();
+};
+
 exports.registerUser = async (req, res) => {
-  const { name, email, password } = req.body;
+  const { name, password } = req.body;
+  const email = normalizeEmail(req.body.email);
   try {
     const userExists = await User.findOne({ email });
     if (userExists)
@@ -46,17 +51,23 @@ exports.registerUser = async (req, res) => {
 };
 
 exports.loginUser = async (req, res) => {
-  const { email, password } = req.body;
+  const { password } = req.body;
+  const email = normalizeEmail(req.body.email);
   try {
     const user = await User.findOne({ email });
-    if (user && (await user.matchPassword(password))) {
-      res.json({
-        _id: user._id,
-        token: generateToken(user._id),
-      });
-    } else {
-      res.status(401).json({ message: "Invalid email or password" });
+    if (!user) {
+      return res.status(404).json({ message: "Email does not exist" });
     }
+
+    const isPasswordValid = await user.matchPassword(password);
+    if (!isPasswordValid) {
+      return res.status(401).json({ message: "Incorrect password" });
+    }
+
+    res.json({
+      _id: user._id,
+      token: generateToken(user._id),
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -64,12 +75,10 @@ exports.loginUser = async (req, res) => {
 
 exports.forgotPassword = async (req, res) => {
   try {
-    const { email } = req.body;
+    const email = normalizeEmail(req.body.email);
     const user = await User.findOne({ email });
     if (!user) {
-      return res.status(200).json({
-        message: "If that email exists, a reset OTP has been sent",
-      });
+      return res.status(404).json({ message: "User not found" });
     }
 
     const resetOtp = generateResetOtp();
@@ -94,7 +103,7 @@ exports.forgotPassword = async (req, res) => {
     await transporter.sendMail(mailOptions);
 
     res.status(200).json({
-      message: "If that email exists, a reset OTP has been sent",
+      message: "Reset OTP sent to your email",
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -103,7 +112,8 @@ exports.forgotPassword = async (req, res) => {
 
 exports.verifyResetOtp = async (req, res) => {
   try {
-    const { email, otp } = req.body;
+    const { otp } = req.body;
+    const email = normalizeEmail(req.body.email);
 
     const user = await User.findOne({
       email,
@@ -123,7 +133,8 @@ exports.verifyResetOtp = async (req, res) => {
 
 exports.resetPassword = async (req, res) => {
   try {
-    const { email, otp, password } = req.body;
+    const { otp, password } = req.body;
+    const email = normalizeEmail(req.body.email);
 
     const user = await User.findOne({
       email,
