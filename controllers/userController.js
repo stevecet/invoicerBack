@@ -1,5 +1,32 @@
 const User = require("../models/User");
 
+// @desc    Get current user profile
+// @route   GET /api/users/me
+// @access  Private
+exports.getMe = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    res.status(200).json(user);
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+// @desc    Update current user profile
+// @route   PUT /api/users/me
+// @access  Private
+exports.updateMe = async (req, res) => {
+  try {
+    const user = await User.findByIdAndUpdate(req.user.id, req.body, {
+      new: true,
+      runValidators: true,
+    });
+    res.status(200).json(user);
+  } catch (error) {
+    res.status(400).json({ success: false, error: error.message });
+  }
+};
+
 // CREATE: Create a user
 exports.createUser = async (req, res) => {
   try {
