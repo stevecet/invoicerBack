@@ -12,7 +12,7 @@ const { protect } = require("../middleware/authMiddleware");
 
 // URL: /api/users
 // All these routes now require a valid JWT token
-router.route("/me").get(protect, getMe).put(protect, updateMe);
+router.route("/me").get(protect, getMe).patch(protect, updateMe);
 
 router.route("/").get(protect, getUsers);
 
