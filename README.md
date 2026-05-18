@@ -91,9 +91,19 @@ Authorization: Bearer YOUR_JWT_TOKEN
 ### Users
 
 - `GET /api/users`
+- `GET /api/users/me` (Get current user)
+- `PATCH /api/users/me` (Update current user)
 - `GET /api/users/:id`
 - `PUT /api/users/:id`
 - `DELETE /api/users/:id`
+
+### Currencies
+
+- `GET /api/currencies`
+- `POST /api/currencies`
+- `GET /api/currencies/:id`
+- `PUT /api/currencies/:id`
+- `DELETE /api/currencies/:id`
 
 ### Invoices
 
@@ -142,7 +152,22 @@ curl --location 'http://localhost:3000/api/invoices' \
   "amount": 2500,
   "currency": "USD",
   "description": "Website redesign deposit",
-  "dueDate": "2026-05-20T00:00:00.000Z"
+  "additionalNotes": "Please pay within 30 days.",
+  "dueDate": "2026-05-20T00:00:00.000Z",
+  "items": [
+    {
+      "name": "Design Phase",
+      "price": 1000,
+      "qty": 1,
+      "total": 1000
+    },
+    {
+      "name": "Development Phase",
+      "price": 1500,
+      "qty": 1,
+      "total": 1500
+    }
+  ]
 }'
 ```
 
@@ -181,21 +206,35 @@ Example response:
 - `name`
 - `email`
 - `password`
-- `resetPasswordToken`
-- `resetPasswordExpires`
+- `language`
+- `currency`
+- `resetPasswordOtp`
+- `resetPasswordOtpExpires`
+- `createdAt`
+- `updatedAt`
+
+### Currency
+
+- `code` (e.g., USD)
+- `name` (e.g., US Dollar)
+- `symbol` (e.g., $)
 - `createdAt`
 - `updatedAt`
 
 ### Invoice
 
 - `userId`
+- `invoiceName` (Auto-generated, e.g., #INV20240725018456)
 - `clientName`
 - `clientEmail`
 - `amount`
 - `currency`
 - `description`
+- `additionalNotes`
+- `items` (Array of objects: `name`, `price`, `qty`, `total`)
 - `status`
 - `stripePaymentLink`
+- `issueDate`
 - `dueDate`
 - `paidAt`
 - `createdAt`

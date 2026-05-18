@@ -1,11 +1,46 @@
 const mongoose = require("mongoose");
 
+const itemSchema = new mongoose.Schema({
+  name: {
+    type: String,
+    required: true,
+    trim: true,
+  },
+  price: {
+    type: Number,
+    required: true,
+    min: 0,
+  },
+  qty: {
+    type: Number,
+    required: true,
+    min: 1,
+  },
+  total: {
+    type: Number,
+    required: true,
+    min: 0,
+  },
+});
+
 const invoiceSchema = new mongoose.Schema(
   {
     userId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
+    },
+    invoiceName: {
+      type: String,
+      unique: true,
+      default: function () {
+        const now = new Date();
+        const dateStr = now
+          .toISOString()
+          .replace(/[-:T.]/g, "")
+          .substring(0, 14);
+        return `#INV${dateStr}`;
+      },
     },
     clientName: {
       type: String,
@@ -35,6 +70,12 @@ const invoiceSchema = new mongoose.Schema(
       trim: true,
       default: "",
     },
+    additionalNotes: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    items: [itemSchema],
     status: {
       type: String,
       enum: ["draft", "pending", "paid", "overdue", "cancelled"],
@@ -44,6 +85,10 @@ const invoiceSchema = new mongoose.Schema(
       type: String,
       trim: true,
       default: "",
+    },
+    issueDate: {
+      type: Date,
+      default: Date.now,
     },
     dueDate: {
       type: Date,

@@ -4,7 +4,9 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "seed": "node seed.js",
+    "seed:destroy": "node seed.js -d"
   },
   "keywords": [],
   "author": "",

@@ -1,0 +1,276 @@
+openapi: 3.0.0
+info:
+  title: Invoicer Backend API
+  description: Backend API for user authentication, invoice management, and Stripe checkout session creation.
+  version: 1.0.0
+servers:
+  - url: http://localhost:3000/api
+    description: Local development server
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    User:
+      type: object
+      properties:
+        _id:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+        language:
+          type: string
+        currency:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    Currency:
+      type: object
+      properties:
+        _id:
+          type: string
+        code:
+          type: string
+        name:
+          type: string
+        symbol:
+          type: string
+    InvoiceItem:
+      type: object
+      properties:
+        _id:
+          type: string
+        name:
+          type: string
+        price:
+          type: number
+        qty:
+          type: number
+        total:
+          type: number
+    Invoice:
+      type: object
+      properties:
+        _id:
+          type: string
+        userId:
+          type: string
+        invoiceName:
+          type: string
+        clientName:
+          type: string
+        clientEmail:
+          type: string
+        amount:
+          type: number
+        currency:
+          type: string
+        description:
+          type: string
+        additionalNotes:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/InvoiceItem'
+        status:
+          type: string
+          enum: [draft, pending, paid, overdue, cancelled]
+        stripePaymentLink:
+          type: string
+        issueDate:
+          type: string
+          format: date-time
+        dueDate:
+          type: string
+          format: date-time
+        paidAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+security:
+  - bearerAuth: []
+
+paths:
+  /auth/register:
+    post:
+      summary: Register a new user
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email, password]
+              properties:
+                name:
+                  type: string
+                email:
+                  type: string
+                password:
+                  type: string
+      responses:
+        '201':
+          description: User created
+  /auth/login:
+    post:
+      summary: Login user
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                password:
+                  type: string
+      responses:
+        '200':
+          description: Login successful
+  /users/me:
+    get:
+      summary: Get current user profile
+      responses:
+        '200':
+          description: User profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+    patch:
+      summary: Update current user profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                language:
+                  type: string
+                currency:
+                  type: string
+      responses:
+        '200':
+          description: User profile updated
+  /currencies:
+    get:
+      summary: Get all currencies
+      responses:
+        '200':
+          description: List of currencies
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Currency'
+    post:
+      summary: Create a new currency
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code, name, symbol]
+              properties:
+                code:
+                  type: string
+                name:
+                  type: string
+                symbol:
+                  type: string
+      responses:
+        '201':
+          description: Currency created
+  /invoices:
+    get:
+      summary: Get all invoices for user
+      responses:
+        '200':
+          description: List of invoices
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Invoice'
+    post:
+      summary: Create an invoice
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [clientName, clientEmail, amount, dueDate]
+              properties:
+                clientName:
+                  type: string
+                clientEmail:
+                  type: string
+                amount:
+                  type: number
+                currency:
+                  type: string
+                description:
+                  type: string
+                additionalNotes:
+                  type: string
+                dueDate:
+                  type: string
+                  format: date-time
+                items:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      name:
+                        type: string
+                      price:
+                        type: number
+                      qty:
+                        type: number
+                      total:
+                        type: number
+      responses:
+        '201':
+          description: Invoice created
+  /payments/create-checkout-session:
+    post:
+      summary: Create Stripe checkout session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [invoiceId]
+              properties:
+                invoiceId:
+                  type: string
+      responses:
+        '200':
+          description: Checkout session created
