@@ -1,6 +1,7 @@
 const mongoose = require("mongoose");
 const Invoice = require("../models/Invoice");
 const nodemailer = require("nodemailer");
+const Notification = require("../models/Notification");
 
 const createTransporter = () => {
   return nodemailer.createTransport({
@@ -202,6 +203,23 @@ const sendInvoiceEmail = async (invoice) => {
 
     await transporter.sendMail(mailOptions);
     console.log(`Invoice email sent successfully to ${invoice.clientEmail}`);
+
+    try {
+      const formattedAmount = new Intl.NumberFormat("en-US", {
+        style: "currency",
+        currency: invoice.currency || "USD",
+      }).format(invoice.amount);
+      await Notification.create({
+        userId: invoice.userId,
+        invoiceId: invoice._id,
+        type: "invoice_sent",
+        title: "Invoice Sent",
+        message: `Invoice ${invoice.invoiceName || ""} for ${formattedAmount} has been sent to ${invoice.clientEmail}.`,
+        recipient: invoice.clientEmail,
+      });
+    } catch (err) {
+      console.error(`Failed to log invoice_sent notification: ${err.message}`);
+    }
   } catch (error) {
     console.error("Error sending invoice email:", error);
   }

@@ -17,11 +17,21 @@ exports.getMe = async (req, res) => {
 // @access  Private
 exports.updateMe = async (req, res) => {
   try {
-    const user = await User.findByIdAndUpdate(req.user.id, req.body, {
-      new: true,
-      runValidators: true,
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    // Update fields dynamically
+    Object.keys(req.body).forEach((key) => {
+      user[key] = req.body[key];
     });
-    res.status(200).json(user);
+
+    await user.save();
+
+    // Convert to object and exclude password
+    const returnedUser = user.toObject();
+    delete returnedUser.password;
+
+    res.status(200).json(returnedUser);
   } catch (error) {
     res.status(400).json({ success: false, error: error.message });
   }
@@ -61,12 +71,20 @@ exports.getUser = async (req, res) => {
 // UPDATE: Update user details
 exports.updateUser = async (req, res) => {
   try {
-    const user = await User.findByIdAndUpdate(req.params.id, req.body, {
-      new: true, // returns the updated document
-      runValidators: true, // ensures the update follows the schema
-    });
+    const user = await User.findById(req.params.id);
     if (!user) return res.status(404).json({ message: "User not found" });
-    res.status(200).json(user);
+
+    // Update fields dynamically
+    Object.keys(req.body).forEach((key) => {
+      user[key] = req.body[key];
+    });
+
+    await user.save();
+
+    const returnedUser = user.toObject();
+    delete returnedUser.password;
+
+    res.status(200).json(returnedUser);
   } catch (error) {
     res.status(400).json({ success: false, error: error.message });
   }

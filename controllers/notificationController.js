@@ -1,6 +1,23 @@
 const Invoice = require("../models/Invoice");
 const stripe = require("../config/stripe");
 const nodemailer = require("nodemailer");
+const Notification = require("../models/Notification");
+
+const createNotificationRecord = async ({ userId, invoiceId, type, title, message, recipient }) => {
+  try {
+    if (!userId) return;
+    await Notification.create({
+      userId,
+      invoiceId,
+      type,
+      title,
+      message,
+      recipient,
+    });
+  } catch (error) {
+    console.error(`Error creating notification record: ${error.message}`);
+  }
+};
 
 const createTransporter = () => {
   return nodemailer.createTransport({
@@ -224,6 +241,20 @@ exports.stripeWebhook = async (req, res) => {
 
           console.log(`Invoice ${invoiceId} successfully marked as paid!`);
           await sendPaymentConfirmationEmail(invoice);
+
+          // Log payment confirmation notification
+          const formattedAmount = new Intl.NumberFormat("en-US", {
+            style: "currency",
+            currency: invoice.currency || "USD",
+          }).format(invoice.amount);
+          await createNotificationRecord({
+            userId: invoice.userId,
+            invoiceId: invoice._id,
+            type: "payment_confirmed",
+            title: "Payment Confirmed",
+            message: `Invoice ${invoice.invoiceName || ""} for ${formattedAmount} has been marked as paid.`,
+            recipient: invoice.clientEmail,
+          });
         }
       } catch (error) {
         console.error(`Error updating invoice status from webhook: ${error.message}`);
@@ -247,6 +278,18 @@ exports.sendReminders = async (req, res) => {
     console.log(`Found ${dueSoonInvoices.length} invoices due soon.`);
     for (const invoice of dueSoonInvoices) {
       await sendReminderEmail(invoice, "upcoming");
+      const formattedAmount = new Intl.NumberFormat("en-US", {
+        style: "currency",
+        currency: invoice.currency || "USD",
+      }).format(invoice.amount);
+      await createNotificationRecord({
+        userId: invoice.userId,
+        invoiceId: invoice._id,
+        type: "reminder_sent",
+        title: "Upcoming Payment Reminder",
+        message: `An automated reminder was sent to ${invoice.clientEmail} for Invoice ${invoice.invoiceName || ""} (${formattedAmount}).`,
+        recipient: invoice.clientEmail,
+      });
     }
 
     const overdueInvoices = await Invoice.find({
@@ -259,6 +302,18 @@ exports.sendReminders = async (req, res) => {
       invoice.status = "overdue";
       await invoice.save();
       await sendReminderEmail(invoice, "overdue");
+      const formattedAmount = new Intl.NumberFormat("en-US", {
+        style: "currency",
+        currency: invoice.currency || "USD",
+      }).format(invoice.amount);
+      await createNotificationRecord({
+        userId: invoice.userId,
+        invoiceId: invoice._id,
+        type: "overdue_notice",
+        title: "Overdue Invoice Notice",
+        message: `Invoice ${invoice.invoiceName || ""} (${formattedAmount}) is overdue. An overdue notice has been sent to ${invoice.clientEmail}.`,
+        recipient: invoice.clientEmail,
+      });
     }
 
     const result = {
@@ -281,5 +336,105 @@ exports.sendReminders = async (req, res) => {
     } else {
       throw error;
     }
+  }
+};
+
+exports.sendSpecificReminder = async (req, res) => {
+  try {
+    const { invoiceId, email } = req.body;
+
+    if (!invoiceId) {
+      return res.status(400).json({ success: false, message: "invoiceId is required" });
+    }
+
+    const invoice = await Invoice.findById(invoiceId);
+    if (!invoice) {
+      return res.status(404).json({ success: false, message: "Invoice not found" });
+    }
+
+    // Verify ownership
+    if (invoice.userId && invoice.userId.toString() !== req.user.id) {
+      return res.status(403).json({ success: false, message: "Not authorized to access this invoice" });
+    }
+
+    // Optional email override
+    if (email) {
+      invoice.clientEmail = email;
+    }
+
+    if (!invoice.clientEmail) {
+      return res.status(400).json({ success: false, message: "Invoice clientEmail is not set, and no custom email was supplied" });
+    }
+
+    // Determine type (overdue notice vs upcoming reminder)
+    const type = invoice.status === "overdue" ? "overdue" : "upcoming";
+
+    await sendReminderEmail(invoice, type);
+
+    const formattedAmount = new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: invoice.currency || "USD",
+    }).format(invoice.amount);
+
+    await createNotificationRecord({
+      userId: invoice.userId,
+      invoiceId: invoice._id,
+      type: type === "overdue" ? "overdue_notice" : "reminder_sent",
+      title: type === "overdue" ? "Overdue Notice Sent (Manual)" : "Reminder Sent (Manual)",
+      message: `A manual reminder was sent to ${invoice.clientEmail} for Invoice ${invoice.invoiceName || ""} (${formattedAmount}).`,
+      recipient: invoice.clientEmail,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: `Reminder email sent successfully to ${invoice.clientEmail}`,
+      invoiceId: invoice._id,
+      clientEmail: invoice.clientEmail,
+      type
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+exports.getNotifications = async (req, res) => {
+  try {
+    const notifications = await Notification.find({ userId: req.user._id })
+      .sort({ createdAt: -1 })
+      .limit(50);
+    return res.status(200).json(notifications);
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+exports.markAsRead = async (req, res) => {
+  try {
+    const notification = await Notification.findOneAndUpdate(
+      { _id: req.params.id, userId: req.user._id },
+      { read: true },
+      { new: true }
+    );
+
+    if (!notification) {
+      return res.status(404).json({ success: false, message: "Notification not found or unauthorized" });
+    }
+
+    return res.status(200).json(notification);
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+exports.markAllAsRead = async (req, res) => {
+  try {
+    await Notification.updateMany(
+      { userId: req.user._id, read: false },
+      { read: true }
+    );
+
+    return res.status(200).json({ success: true, message: "All notifications marked as read" });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
   }
 };
