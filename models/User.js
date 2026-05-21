@@ -11,7 +11,7 @@ const userSchema = new mongoose.Schema(
       trim: true,
       lowercase: true,
     },
-    password: { type: String, required: true },
+    password: { type: String, required: true, select: false },
     language: { type: String, default: "en" },
     currency: { type: String, default: "USD" },
     resetPasswordOtp: String,

@@ -30,16 +30,22 @@ const toStripeUnitAmount = (amount, currency) => {
 };
 
 const createInvoiceCheckoutSession = async ({ invoice, userId, baseUrl }) => {
-  return stripe.checkout.sessions.create({
-    mode: "payment",
-    customer_email: invoice.clientEmail,
-    success_url: `${baseUrl}/payment-success?invoiceId=${invoice._id}`,
-    cancel_url: `${baseUrl}/payment-cancelled?invoiceId=${invoice._id}`,
-    metadata: {
-      invoiceId: invoice._id.toString(),
-      userId: userId.toString(),
-    },
-    line_items: [
+  let line_items;
+
+  if (invoice.items && invoice.items.length > 0) {
+    line_items = invoice.items.map((item) => ({
+      price_data: {
+        currency: invoice.currency.toLowerCase(),
+        product_data: {
+          name: item.name,
+          description: `Qty: ${item.qty} @ ${invoice.currency.toUpperCase()} ${item.price}`,
+        },
+        unit_amount: toStripeUnitAmount(item.price, invoice.currency),
+      },
+      quantity: item.qty,
+    }));
+  } else {
+    line_items = [
       {
         price_data: {
           currency: invoice.currency.toLowerCase(),
@@ -51,7 +57,19 @@ const createInvoiceCheckoutSession = async ({ invoice, userId, baseUrl }) => {
         },
         quantity: 1,
       },
-    ],
+    ];
+  }
+
+  return stripe.checkout.sessions.create({
+    mode: "payment",
+    customer_email: invoice.clientEmail,
+    success_url: `${baseUrl}/payment-success?invoiceId=${invoice._id}`,
+    cancel_url: `${baseUrl}/payment-cancelled?invoiceId=${invoice._id}`,
+    metadata: {
+      invoiceId: invoice._id.toString(),
+      userId: userId.toString(),
+    },
+    line_items,
   });
 };
 

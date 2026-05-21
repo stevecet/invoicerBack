@@ -54,7 +54,7 @@ exports.loginUser = async (req, res) => {
   const { password } = req.body;
   const email = normalizeEmail(req.body.email);
   try {
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email }).select("+password");
     if (!user) {
       return res.status(404).json({ message: "Email does not exist" });
     }
@@ -178,7 +178,7 @@ exports.resetPassword = async (req, res) => {
       email,
       resetPasswordOtp: hashOtp(otp),
       resetPasswordOtpExpires: { $gt: Date.now() },
-    });
+    }).select("+password");
 
     if (!user) {
       return res.status(400).json({ message: "Invalid or expired OTP" });

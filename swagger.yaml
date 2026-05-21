@@ -274,3 +274,22 @@ paths:
       responses:
         '200':
           description: Checkout session created
+  /notifications/webhook:
+    post:
+      summary: Stripe webhook for handling checkout session completions
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Webhook received successfully
+  /notifications/reminders:
+    post:
+      summary: Trigger email reminders for upcoming and overdue invoices
+      responses:
+        '200':
+          description: Reminders processed successfully

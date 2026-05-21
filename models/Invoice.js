@@ -39,7 +39,8 @@ const invoiceSchema = new mongoose.Schema(
           .toISOString()
           .replace(/[-:T.]/g, "")
           .substring(0, 14);
-        return `#INV${dateStr}`;
+        const randomDigits = Math.floor(1000 + Math.random() * 9000);
+        return `#INV${dateStr}${randomDigits}`;
       },
     },
     clientName: {

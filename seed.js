@@ -42,6 +42,7 @@ const seedData = async () => {
     await Invoice.create([
       {
         userId: user._id,
+        invoiceName: "#INV20260521130001",
         clientName: "Acme Corp",
         clientEmail: "billing@acmecorp.com",
         amount: 3000,
@@ -58,6 +59,7 @@ const seedData = async () => {
       },
       {
         userId: user._id,
+        invoiceName: "#INV20260521130002",
         clientName: "Globex Inc",
         clientEmail: "finance@globex.com",
         amount: 1500,

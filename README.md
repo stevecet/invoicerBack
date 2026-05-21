@@ -111,9 +111,12 @@ Authorization: Bearer YOUR_JWT_TOKEN
 - `GET /api/invoices`
 - `GET /api/invoices/:id`
 
-### Payments
-
 - `POST /api/payments/create-checkout-session`
+
+### Notifications
+
+- `POST /api/notifications/webhook` (Stripe Webhook for payments verification)
+- `POST /api/notifications/reminders` (Sweep database and trigger upcoming/overdue reminders)
 
 ## Example Requests
 
@@ -242,15 +245,10 @@ Example response:
 
 ## Current Limitations
 
-- No Stripe webhook yet to auto-mark invoices as paid
-- No invoice update or delete endpoints yet
 - No role-based authorization for user management
 - Minimal validation beyond Mongoose schema validation
 
 ## Next Recommended Improvements
 
-- Add Stripe webhook handling for successful payments
-- Update invoice status to `paid` and set `paidAt`
-- Add invoice update and delete endpoints
 - Add request validation with a library like `zod` or `express-validator`
 - Add tests for auth, invoices, and payments
