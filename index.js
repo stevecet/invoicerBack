@@ -27,7 +27,12 @@ app.use(
   })
 );
 
+const { paymentSuccess, paymentCancelled } = require("./controllers/paymentController");
+
 // Mounting Routes
+app.get("/payment-success", paymentSuccess);
+app.get("/payment-cancelled", paymentCancelled);
+
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/invoices", invoiceRoutes);
